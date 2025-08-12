@@ -1,5 +1,5 @@
 # Railway Deployment - Java 21 Spring Boot with Gradle
-# Using Amazon Corretto as more reliable base image
+# Build from project root to access backend/ directory
 FROM amazoncorretto:21-alpine AS builder
 
 # Install necessary build tools
@@ -7,11 +7,11 @@ RUN apk add --no-cache bash
 
 WORKDIR /app
 
-# Copy Gradle wrapper and build files
-COPY gradlew ./
-COPY gradle ./gradle
-COPY build.gradle settings.gradle ./
-COPY src ./src
+# Copy Gradle wrapper and build files from backend directory
+COPY backend/gradlew ./
+COPY backend/gradle ./gradle
+COPY backend/build.gradle backend/settings.gradle ./
+COPY backend/src ./src
 
 # Make gradlew executable and build
 RUN chmod +x gradlew && \
