@@ -1,0 +1,134 @@
+server:
+  port: 8080
+  servlet:
+    context-path: ""
+
+spring:
+  application:
+    name: chimera-mvp-backend
+  
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chimera_local
+    username: chimera
+    password: chimera_dev_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+    open-in-view: false
+
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # Caching Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 86400000 # 24 hours in milliseconds
+      cache-null-values: false
+
+  # Jackson Configuration
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# Custom Application Properties
+chimera:
+  # API Keys (will be overridden by environment variables)
+  openai:
+    api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
+    model: gpt-3.5-turbo
+    embedding-model: text-embedding-3-small
+    max-tokens: 150
+    temperature: 0.3
+    base-url: https://api.openai.com/v1
+
+  news:
+    api-key: ${NEWS_API_KEY:your-news-api-key-here}
+    
+  # Budget Controls
+  budget:
+    daily-limit: 5.0 # USD
+    cost-per-1k-tokens: 0.002
+    enable-cost-protection: true
+    fallback-to-cache: true
+    
+  # Data Sources
+  data-sources:
+    nse-eod-url: "https://www.nseindia.com/api/equity-stockIndices"
+    amfi-nav-url: "https://www.amfiindia.com/spages/NAVAll.txt"
+    reuters-rss: "https://feeds.reuters.com/reuters/INbusinessNews"
+    
+  # Feature Flags
+  features:
+    enable-real-data-ingestion: true
+    enable-llm-explanations: true
+    enable-news-sentiment: true
+    enable-cost-monitoring: true
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    com.chimera: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# CORS Configuration
+cors:
+  allowed-origins:
+    - "http://localhost:3000"
+    - "http://10.0.2.2:8080"
+    - "http://127.0.0.1:*"
+    - "http://192.168.*.*:*"
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed-headers:
+    - "*"
+  allow-credentials: true

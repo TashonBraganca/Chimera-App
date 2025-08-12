@@ -1,0 +1,82 @@
+# Chimera MVP - Comprehensive .gitignore
+
+# Security - Never commit secrets
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.crt
+secrets/
+api_keys.txt
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Backend (Java/Maven)
+backend/target/
+backend/*.jar
+backend/*.war
+backend/*.log
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Android (Gradle)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.apk
+android/*.aab
+
+# Database
+*.db
+*.sqlite
+*.sql.backup
+
+# Logs
+*.log
+logs/
+log/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.cache
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if any scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Documentation builds
+docs/_build/
+docs/site/
+
+# Backup files
+*.bak
+*.backup

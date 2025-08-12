@@ -1,0 +1,47 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: chimera-mvp-backend
+  
+  # Disable JPA for initial testing
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+
+# Custom Application Properties (standalone mode)
+chimera:
+  # API Keys
+  openai:
+    api-key: ${OPENAI_API_KEY:your-openai-api-key-here}
+    model: gpt-3.5-turbo
+    embedding-model: text-embedding-3-small
+    max-tokens: 150
+    temperature: 0.3
+
+  news:
+    api-key: ${NEWS_API_KEY:ed27446c45f6419680b6247e2bbabe57}
+    
+  # Budget Controls
+  budget:
+    daily-limit: 5.0
+    cost-per-1k-tokens: 0.002
+    enable-cost-protection: true
+    fallback-to-cache: true
+
+# Logging
+logging:
+  level:
+    com.chimera: INFO
+    org.springframework.web: WARN
+    
+# CORS Configuration
+cors:
+  allowed-origins:
+    - "http://localhost:3000"
+    - "http://10.0.2.2:8080"
+    - "http://127.0.0.1:*"
+    - "http://192.168.*.*:*"

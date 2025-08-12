@@ -1,0 +1,109 @@
+# Railway Production Configuration
+server:
+  port: ${PORT:8080}
+
+spring:
+  # Railway Database Configuration (PostgreSQL)
+  datasource:
+    url: ${DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+  # Railway Redis Configuration (if enabled)
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 5
+          max-idle: 2
+          min-idle: 0
+
+  # JPA Configuration for Production
+  jpa:
+    hibernate:
+      ddl-auto: validate # Use Flyway for migrations
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        use_sql_comments: false
+    open-in-view: false
+
+# API Keys from Railway Environment Variables
+chimera:
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-3.5-turbo
+    embedding-model: text-embedding-3-small
+    max-tokens: 150
+    temperature: 0.3
+    base-url: https://api.openai.com/v1
+
+  news:
+    api-key: ${NEWS_API_KEY:}
+    
+  # Production Budget Controls
+  budget:
+    daily-limit: 10.0 # USD - higher for production
+    cost-per-1k-tokens: 0.002
+    enable-cost-protection: true
+    fallback-to-cache: true
+    
+  # Data Sources (Production URLs)
+  data-sources:
+    nse-eod-url: "https://www.nseindia.com/api/equity-stockIndices"
+    amfi-nav-url: "https://www.amfiindia.com/spages/NAVAll.txt"
+    reuters-rss: "https://feeds.reuters.com/reuters/INbusinessNews"
+    
+  # Feature Flags for Production
+  features:
+    enable-real-data-ingestion: true
+    enable-llm-explanations: true
+    enable-news-sentiment: true
+    enable-cost-monitoring: true
+
+# Management Endpoints for Railway
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Production Logging
+logging:
+  level:
+    com.chimera: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: ERROR
+    root: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# CORS for Production (Flutter app domains)
+cors:
+  allowed-origins:
+    - "https://*.railway.app"
+    - "https://chimera-app.com" # Future custom domain
+  allowed-methods:
+    - GET
+    - POST
+    - OPTIONS
+  allowed-headers:
+    - "Content-Type"
+    - "Authorization"
+  allow-credentials: false

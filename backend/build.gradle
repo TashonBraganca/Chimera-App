@@ -1,0 +1,133 @@
+plugins {
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'java'
+}
+
+group = 'com.chimera'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
+// Enable preview features for Java 21
+compileJava {
+    options.compilerArgs += ['--enable-preview']
+}
+
+compileTestJava {
+    options.compilerArgs += ['--enable-preview']
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring Boot Core
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    
+    // Database
+    implementation 'org.postgresql:postgresql'
+    runtimeOnly 'com.h2database:h2'
+    implementation 'com.pgvector:pgvector:0.1.4'
+    implementation 'org.flywaydb:flyway-core'
+    
+    // Observability
+    implementation 'io.micrometer:micrometer-core:1.12.0'
+    implementation 'io.micrometer:micrometer-registry-prometheus:1.12.0'
+    implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.14.0'
+    
+    // Resilience
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.1.0'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.1.0'
+    implementation 'io.github.resilience4j:resilience4j-ratelimiter:2.1.0'
+    
+    // HTTP Client for external APIs
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    
+    // JSON Processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    
+    // RSS Feed Processing
+    implementation 'com.rometools:rome:2.1.0'
+    
+    // Apache POI for Excel parsing
+    implementation 'org.apache.poi:poi:5.2.4'
+    implementation 'org.apache.poi:poi-ooxml:5.2.4'
+    
+    // Utilities
+    implementation 'org.apache.commons:commons-lang3'
+    implementation 'org.apache.commons:commons-math3:3.6.1'
+    
+    // Lombok for code generation
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+}
+
+// Set the main class for Spring Boot
+springBoot {
+    mainClass = 'com.chimera.ChimeraStandaloneApplication'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Task to run the minimal application
+task run(type: JavaExec) {
+    group = 'application'
+    description = 'Run the minimal Chimera application'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.chimera.ChimeraMinimalApplication'
+    jvmArgs = ['-Xmx512m', '-Xms128m', '--enable-preview']
+}
+
+// Task to run the standalone application
+task runStandalone(type: JavaExec) {
+    group = 'application'
+    description = 'Run the standalone Chimera application'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.chimera.ChimeraStandaloneApplication'
+    jvmArgs = ['-Xmx512m', '-Xms128m', '--enable-preview']
+}
+
+// Configure test execution to use preview features
+test {
+    jvmArgs(['--enable-preview'])
+}
+
+// Configure Spring Boot application properties
+springBoot {
+    buildInfo()
+}
+
+// Configure JAR manifest
+jar {
+    enabled = false
+    archiveClassifier = ''
+}
+
+// Configure bootJar
+bootJar {
+    archiveFileName = 'chimera-backend.jar'
+    launchScript()
+}
