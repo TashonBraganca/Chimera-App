@@ -1,5 +1,5 @@
 # Railway Deployment - Java 21 Spring Boot with Gradle
-# Build from project root to access backend/ directory
+# Force rebuild v2 - Build from project root to access backend/ directory  
 FROM amazoncorretto:21-alpine AS builder
 
 # Install necessary build tools
@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Copy Gradle wrapper and build files from backend directory
 COPY backend/gradlew ./
-COPY backend/gradle ./gradle
+COPY backend/gradle ./gradle  
 COPY backend/build.gradle backend/settings.gradle ./
 COPY backend/src ./src
 
