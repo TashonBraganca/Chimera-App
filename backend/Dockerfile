@@ -1,5 +1,5 @@
 # Multi-stage build for Spring Boot application with Gradle
-FROM openjdk:21-jdk-slim AS builder
+FROM eclipse-temurin:21-jdk-jammy AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY src ./src
 RUN chmod +x gradlew && \
     ./gradlew build --no-daemon -x test
 
-FROM openjdk:21-jre-slim AS runtime
+FROM eclipse-temurin:21-jre-jammy AS runtime
 
 # Create non-root user
 RUN addgroup --system chimera && adduser --system --group chimera
