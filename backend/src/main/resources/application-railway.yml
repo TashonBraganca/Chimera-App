@@ -1,11 +1,18 @@
-# Railway Production Configuration
+# Railway Production Configuration - Minimal startup mode
 server:
   port: ${PORT:8080}
 
 spring:
-  # Railway Database Configuration (PostgreSQL)
+  # Disable database until PostgreSQL service is added
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      
+  # Database configuration (will be enabled when DATABASE_URL is set)
   datasource:
-    url: ${DATABASE_URL}
+    url: ${DATABASE_URL:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
@@ -14,28 +21,17 @@ spring:
       idle-timeout: 300000
       max-lifetime: 600000
 
-  # Railway Redis Configuration (if enabled)
+  # Redis configuration (optional)
   data:
     redis:
-      url: ${REDIS_URL:redis://localhost:6379}
+      url: ${REDIS_URL:}
       timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 5
-          max-idle: 2
-          min-idle: 0
 
-  # JPA Configuration for Production
+  # JPA Configuration (disabled initially)  
   jpa:
     hibernate:
-      ddl-auto: validate # Use Flyway for migrations
+      ddl-auto: validate
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false
-        use_sql_comments: false
-    open-in-view: false
 
 # API Keys from Railway Environment Variables
 chimera:

@@ -83,9 +83,9 @@ dependencies {
     testImplementation 'org.testcontainers:postgresql'
 }
 
-// Set the main class for Spring Boot
+// Set the main class for Spring Boot (Railway-compatible)
 springBoot {
-    mainClass = 'com.chimera.ChimeraStandaloneApplication'
+    mainClass = 'com.chimera.ChimeraRailwayApplication'
 }
 
 tasks.named('test') {
