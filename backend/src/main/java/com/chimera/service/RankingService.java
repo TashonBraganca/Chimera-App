@@ -26,10 +26,10 @@ public class RankingService {
     
     private static final Logger logger = LoggerFactory.getLogger(RankingService.class);
     
-    @Autowired
+    @Autowired(required = false)
     private AssetRankingRepository assetRankingRepository;
     
-    @Autowired
+    @Autowired(required = false)
     private EquityDataRepository equityDataRepository;
     
     @Autowired
@@ -65,26 +65,48 @@ public class RankingService {
     }
     
     private List<AssetRanking> getCachedRankings(RankingRequest request) {
-        LocalDateTime cacheThreshold = LocalDateTime.now().minusMinutes(30);
+        if (assetRankingRepository == null) {
+            logger.debug("AssetRankingRepository not available, skipping cache lookup");
+            return new ArrayList<>();
+        }
         
-        return assetRankingRepository.findCachedRankings(
-            request.getAmountInr(),
-            request.getHorizonDays(),
-            request.getRiskPreference(),
-            cacheThreshold
-        );
+        try {
+            LocalDateTime cacheThreshold = LocalDateTime.now().minusMinutes(30);
+            
+            return assetRankingRepository.findCachedRankings(
+                request.getAmountInr(),
+                request.getHorizonDays(),
+                request.getRiskPreference(),
+                cacheThreshold
+            );
+        } catch (Exception e) {
+            logger.warn("Error accessing cached rankings: {}", e.getMessage());
+            return new ArrayList<>();
+        }
     }
     
     private List<AssetRanking> computeRankings(RankingRequest request) {
-        // Get latest equity data
-        LocalDate latestDate = equityDataRepository.findLatestTradingDate();
-        if (latestDate == null) {
-            latestDate = LocalDate.now().minusDays(1);
+        // Check if equity repository is available
+        if (equityDataRepository == null) {
+            logger.info("EquityDataRepository not available, using mock data");
+            return generateMockRankings(request);
         }
         
-        List<EquityData> equityData = equityDataRepository.findByTradeDateOrderBySymbolAsc(latestDate);
-        
-        if (equityData.isEmpty()) {
+        List<EquityData> equityData;
+        try {
+            // Get latest equity data
+            LocalDate latestDate = equityDataRepository.findLatestTradingDate();
+            if (latestDate == null) {
+                latestDate = LocalDate.now().minusDays(1);
+            }
+            
+            equityData = equityDataRepository.findByTradeDateOrderBySymbolAsc(latestDate);
+            
+            if (equityData.isEmpty()) {
+                return generateMockRankings(request);
+            }
+        } catch (Exception e) {
+            logger.warn("Error accessing equity data: {}", e.getMessage());
             return generateMockRankings(request);
         }
         
@@ -267,6 +289,11 @@ public class RankingService {
     }
     
     private void saveRankings(List<AssetRanking> rankings, RankingRequest request) {
+        if (assetRankingRepository == null) {
+            logger.debug("AssetRankingRepository not available, skipping rankings save");
+            return;
+        }
+        
         try {
             assetRankingRepository.saveAll(rankings);
             logger.info("Saved {} rankings to cache", rankings.size());
@@ -323,6 +350,11 @@ public class RankingService {
     }
     
     public void cleanupOldRankings() {
+        if (assetRankingRepository == null) {
+            logger.debug("AssetRankingRepository not available, skipping cleanup");
+            return;
+        }
+        
         try {
             LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
             assetRankingRepository.deleteOldRankings(cutoff);

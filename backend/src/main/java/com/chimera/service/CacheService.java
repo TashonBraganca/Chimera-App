@@ -15,7 +15,7 @@ public class CacheService {
     
     private static final Logger logger = LoggerFactory.getLogger(CacheService.class);
     
-    @Autowired
+    @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
     
     // Cache duration constants
@@ -23,11 +23,20 @@ public class CacheService {
     private static final Duration CHAT_CACHE_DURATION = Duration.ofHours(12);
     private static final Duration DAILY_USAGE_CACHE_DURATION = Duration.ofDays(1);
     
+    private boolean isRedisAvailable() {
+        return redisTemplate != null;
+    }
+    
     public void put(String key, Object value) {
         put(key, value, RANKING_CACHE_DURATION);
     }
     
     public void put(String key, Object value, Duration duration) {
+        if (!isRedisAvailable()) {
+            logger.debug("Redis not available, skipping cache put for key: {}", key);
+            return;
+        }
+        
         try {
             redisTemplate.opsForValue().set(key, value, duration.toMillis(), TimeUnit.MILLISECONDS);
             logger.debug("Cached value for key: {} with TTL: {}", key, duration);
@@ -37,6 +46,11 @@ public class CacheService {
     }
     
     public <T> T get(String key, Class<T> type) {
+        if (!isRedisAvailable()) {
+            logger.debug("Redis not available, cache miss for key: {}", key);
+            return null;
+        }
+        
         try {
             Object value = redisTemplate.opsForValue().get(key);
             if (value != null && type.isInstance(value)) {
