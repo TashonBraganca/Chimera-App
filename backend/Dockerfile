@@ -1,4 +1,5 @@
 # Multi-stage build for Spring Boot application with Gradle
+# Updated for Railway deployment with Eclipse Temurin Java 21
 FROM eclipse-temurin:21-jdk-jammy AS builder
 
 WORKDIR /app
