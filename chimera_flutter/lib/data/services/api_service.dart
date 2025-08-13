@@ -3,7 +3,7 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import '../models/ranking_models.dart';
 
 class ApiService {
-  static const String _baseUrl = 'http://192.168.1.106:8080';
+  static const String _baseUrl = 'https://chimera-app-production.up.railway.app';
 
   late final Dio _dio;
 
@@ -64,7 +64,7 @@ class ApiService {
   // Health check
   Future<Map<String, dynamic>> checkHealth() async {
     try {
-      final response = await _dio.get('/health');
+      final response = await _dio.get('/actuator/health');
       return response.data as Map<String, dynamic>;
     } catch (e) {
       throw ApiException('Health check failed: ${e.toString()}');

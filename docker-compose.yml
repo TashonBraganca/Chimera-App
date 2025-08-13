@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chimera-postgres
+    environment:
+      POSTGRES_DB: chimera_local
+      POSTGRES_USER: chimera
+      POSTGRES_PASSWORD: chimera_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chimera -d chimera_local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: chimera-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # TimescaleDB extension setup
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: chimera-timescaledb
+    environment:
+      POSTGRES_DB: chimera_timescale
+      POSTGRES_USER: chimera
+      POSTGRES_PASSWORD: chimera_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chimera -d chimera_timescale"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  timescale_data:
+
+networks:
+  default:
+    name: chimera-network

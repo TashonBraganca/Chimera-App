@@ -35,6 +35,9 @@ public class RankingService {
     @Autowired
     private CacheService cacheService;
     
+    @Autowired
+    private DataIngestionService dataIngestionService;
+    
     // Cache rankings for 30 minutes
     @Cacheable(value = "rankings", key = "#request.cacheKey")
     public RankingResponse generateRankings(RankingRequest request) {
@@ -86,68 +89,191 @@ public class RankingService {
     }
     
     private List<AssetRanking> computeRankings(RankingRequest request) {
-        // Check if equity repository is available
-        if (equityDataRepository == null) {
-            logger.info("EquityDataRepository not available, using mock data");
-            return generateMockRankings(request);
-        }
+        logger.info("Computing rankings using DataIngestionService");
         
-        List<EquityData> equityData;
         try {
-            // Get latest equity data
-            LocalDate latestDate = equityDataRepository.findLatestTradingDate();
-            if (latestDate == null) {
-                latestDate = LocalDate.now().minusDays(1);
+            // Get real equity data from ingestion service
+            List<DataIngestionService.EquityData> realEquityData = dataIngestionService.getAllEquities();
+            List<DataIngestionService.MutualFundData> mutualFundData = dataIngestionService.getAllMutualFunds();
+            
+            if (realEquityData.isEmpty() && mutualFundData.isEmpty()) {
+                logger.warn("No data from ingestion service, falling back to mock rankings");
+                return generateEnhancedMockRankings(request);
             }
             
-            equityData = equityDataRepository.findByTradeDateOrderBySymbolAsc(latestDate);
+            logger.info("Processing {} equities and {} mutual funds", realEquityData.size(), mutualFundData.size());
             
-            if (equityData.isEmpty()) {
-                return generateMockRankings(request);
+            List<AssetRanking> rankings = new ArrayList<>();
+            int rank = 1;
+            
+            // Process equities first
+            for (DataIngestionService.EquityData equity : realEquityData) {
+                if (rank > request.getMaxResults()) break;
+                
+                AssetRanking ranking = createRankingFromRealData(equity, request, rank);
+                rankings.add(ranking);
+                rank++;
             }
+            
+            // Add mutual funds if there's room and user preferences allow
+            if (rank <= request.getMaxResults() && shouldIncludeMutualFunds(request)) {
+                for (DataIngestionService.MutualFundData fund : mutualFundData) {
+                    if (rank > request.getMaxResults()) break;
+                    
+                    AssetRanking ranking = createRankingFromMutualFund(fund, request, rank);
+                    rankings.add(ranking);
+                    rank++;
+                }
+            }
+            
+            // Sort by score descending
+            rankings.sort((a, b) -> Double.compare(b.getScore(), a.getScore()));
+            
+            // Update ranks after sorting
+            for (int i = 0; i < rankings.size(); i++) {
+                rankings.get(i).setRank(i + 1);
+            }
+            
+            return rankings;
+            
         } catch (Exception e) {
-            logger.warn("Error accessing equity data: {}", e.getMessage());
-            return generateMockRankings(request);
+            logger.error("Error computing rankings from real data: ", e);
+            return generateEnhancedMockRankings(request);
+        }
+    }
+    
+    private AssetRanking createRankingFromRealData(DataIngestionService.EquityData equity, RankingRequest request, int rank) {
+        AssetRanking ranking = new AssetRanking();
+        ranking.setSymbol(equity.symbol);
+        ranking.setName(equity.name);
+        ranking.setLastPrice(equity.price);
+        ranking.setChange(String.format("%+.2f%%", equity.changePercent));
+        ranking.setAssetType(AssetType.EQUITY);
+        ranking.setRank(rank);
+        
+        // Calculate sophisticated score
+        double score = calculateRealDataScore(equity, request);
+        ranking.setScore(score);
+        
+        // Calculate confidence based on data quality
+        int confidence = calculateRealDataConfidence(equity, score);
+        ranking.setConfidence(confidence);
+        
+        // Generate recommendation
+        String recommendation = getRecommendation(score, confidence, request);
+        ranking.setRecommendation(recommendation);
+        
+        // Set request context for caching
+        ranking.setRequestAmount(request.getAmountInr());
+        ranking.setRequestHorizonDays(request.getHorizonDays());
+        ranking.setRequestRiskPreference(request.getRiskPreference());
+        
+        return ranking;
+    }
+    
+    private AssetRanking createRankingFromMutualFund(DataIngestionService.MutualFundData fund, RankingRequest request, int rank) {
+        AssetRanking ranking = new AssetRanking();
+        ranking.setSymbol(fund.schemeCode);
+        ranking.setName(fund.schemeName);
+        ranking.setLastPrice(fund.nav);
+        ranking.setChange(String.format("%+.2f%%", fund.changePercent));
+        ranking.setAssetType(AssetType.MUTUAL_FUND);
+        ranking.setRank(rank);
+        
+        // Mutual funds typically get moderate scores (safer investments)
+        double baseScore = 0.6;
+        if (fund.changePercent > 0) baseScore += Math.min(fund.changePercent * 0.1, 0.2);
+        else baseScore += Math.max(fund.changePercent * 0.05, -0.1);
+        
+        ranking.setScore(Math.max(0.3, Math.min(0.9, baseScore)));
+        ranking.setConfidence(85); // Mutual funds are generally more predictable
+        ranking.setRecommendation(request.getRiskPreference().equals("CONSERVATIVE") ? "BUY" : "HOLD");
+        
+        // Set request context
+        ranking.setRequestAmount(request.getAmountInr());
+        ranking.setRequestHorizonDays(request.getHorizonDays());
+        ranking.setRequestRiskPreference(request.getRiskPreference());
+        
+        return ranking;
+    }
+    
+    private double calculateRealDataScore(DataIngestionService.EquityData equity, RankingRequest request) {
+        double score = 0.5; // Base score
+        
+        try {
+            // Factor 1: Price momentum (40% weight)
+            double momentum = equity.changePercent / 100.0; // Convert percentage to decimal
+            score += momentum * 0.4;
+            
+            // Factor 2: Volume indicator (20% weight) - higher volume = higher liquidity
+            double volumeScore = Math.min(equity.volume / 10000000.0, 1.0); // Normalize to 10M shares
+            score += volumeScore * 0.2;
+            
+            // Factor 3: Risk adjustment based on preference (25% weight)
+            double riskAdjustment = getRiskAdjustmentForReal(request.getRiskPreference(), momentum);
+            score += riskAdjustment * 0.25;
+            
+            // Factor 4: Market cap heuristic (15% weight) - assume higher price = larger company
+            double priceScore = Math.min(equity.price / 5000.0, 1.0); // Normalize to ₹5000
+            score += priceScore * 0.15;
+            
+            // Normalize to [0.2, 0.95] range (never too extreme)
+            score = Math.max(0.2, Math.min(0.95, score));
+            
+        } catch (Exception e) {
+            logger.warn("Error calculating real data score for {}: {}", equity.symbol, e.getMessage());
+            score = 0.6; // Conservative fallback
         }
         
-        // Compute scores based on financial metrics
-        List<AssetRanking> rankings = new ArrayList<>();
-        int rank = 1;
+        return score;
+    }
+    
+    private double getRiskAdjustmentForReal(String riskPreference, double momentum) {
+        switch (riskPreference) {
+            case "CONSERVATIVE":
+                return Math.abs(momentum) < 0.02 ? 0.3 : -0.2; // Prefer stable stocks
+            case "AGGRESSIVE":
+                return Math.abs(momentum) > 0.03 ? 0.3 : -0.1; // Prefer volatile stocks
+            case "MODERATE":
+            default:
+                return Math.abs(momentum) > 0.01 && Math.abs(momentum) < 0.04 ? 0.2 : 0.0;
+        }
+    }
+    
+    private int calculateRealDataConfidence(DataIngestionService.EquityData equity, double score) {
+        int confidence = 60; // Base confidence for real data
         
-        for (EquityData equity : equityData) {
-            if (rank > request.getMaxResults()) break;
+        try {
+            // Higher confidence for recent data
+            if (dataIngestionService.isDataFresh()) {
+                confidence += 20;
+            }
             
-            AssetRanking ranking = new AssetRanking();
-            ranking.setSymbol(equity.getSymbol());
-            ranking.setName(equity.getName());
-            ranking.setLastPrice(equity.getClosePrice());
-            ranking.setChange(equity.getChangePercent());
-            ranking.setAssetType(AssetType.EQUITY);
+            // Higher confidence for liquid stocks
+            if (equity.volume > 1000000) { // More than 1M shares traded
+                confidence += 10;
+            }
             
-            // Simple scoring based on multiple factors
-            double score = calculateScore(equity, request);
-            ranking.setScore(score);
+            // Adjust for score extremes
+            if (score > 0.85 || score < 0.3) {
+                confidence -= 15; // Less confident in extreme scores
+            }
             
-            // Confidence based on data quality and score
-            int confidence = calculateConfidence(equity, score);
-            ranking.setConfidence(confidence);
+            // Cap confidence
+            confidence = Math.min(92, Math.max(45, confidence));
             
-            // Recommendation based on score and risk preference
-            String recommendation = getRecommendation(score, confidence, request);
-            ranking.setRecommendation(recommendation);
-            
-            ranking.setRank(rank);
-            
-            // Set request context for caching
-            ranking.setRequestAmount(request.getAmountInr());
-            ranking.setRequestHorizonDays(request.getHorizonDays());
-            ranking.setRequestRiskPreference(request.getRiskPreference());
-            
-            rankings.add(ranking);
-            rank++;
+        } catch (Exception e) {
+            logger.warn("Error calculating confidence for {}: {}", equity.symbol, e.getMessage());
+            confidence = 60;
         }
         
-        return rankings;
+        return confidence;
+    }
+    
+    private boolean shouldIncludeMutualFunds(RankingRequest request) {
+        // Include mutual funds for conservative investors or large amounts
+        return "CONSERVATIVE".equals(request.getRiskPreference()) || 
+               request.getAmountInr() >= 100000;
     }
     
     private double calculateScore(EquityData equity, RankingRequest request) {
@@ -247,7 +373,7 @@ public class RankingService {
         }
     }
     
-    private List<AssetRanking> generateMockRankings(RankingRequest request) {
+    private List<AssetRanking> generateEnhancedMockRankings(RankingRequest request) {
         logger.info("Generating mock rankings due to lack of real data");
         
         String[] mockSymbols = {"RELIANCE", "TCS", "INFY", "HDFC", "ICICI", "BAJAJ-AUTO", "WIPRO", "ITC", "SBIN", "LT"};
@@ -338,7 +464,7 @@ public class RankingService {
     private RankingResponse getFallbackResponse(RankingRequest request, long startTime) {
         logger.warn("Using fallback response due to error");
         
-        List<AssetRanking> mockRankings = generateMockRankings(request);
+        List<AssetRanking> mockRankings = generateEnhancedMockRankings(request);
         RankingResponse response = buildResponse(mockRankings, startTime, false);
         response.setStatus("fallback");
         response.getMetadata().setDataSource("Mock Data (Fallback)");

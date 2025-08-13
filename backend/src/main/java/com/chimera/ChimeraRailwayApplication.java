@@ -3,6 +3,7 @@ package com.chimera;
 import com.chimera.dto.RankingRequest;
 import com.chimera.dto.RankingResponse;
 import com.chimera.service.RankingService;
+import com.chimera.service.OpenAIService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,9 @@ public class ChimeraRailwayApplication {
     
     @Autowired(required = false)
     private RankingService rankingService;
+    
+    @Autowired(required = false)
+    private OpenAIService openAIService;
 
     public static void main(String[] args) {
         SpringApplication.run(ChimeraRailwayApplication.class, args);
@@ -100,7 +104,7 @@ public class ChimeraRailwayApplication {
         }
     }
     
-    // Chat endpoint
+    // Chat endpoint - integrated with OpenAI
     @CrossOrigin(origins = {"*"})
     @PostMapping("/api/chat")
     public ResponseEntity<Map<String, Object>> chat(@RequestBody Map<String, Object> request) {
@@ -117,20 +121,46 @@ public class ChimeraRailwayApplication {
             
             logger.info("Processing chat request for asset: {}, question: {}", assetId, question);
             
-            // Mock response for Railway deployment
+            // Use real OpenAI service if available
+            if (openAIService != null) {
+                try {
+                    OpenAIService.ChatResponse chatResponse = openAIService.generateExplanation(
+                        assetId.isEmpty() ? "GENERAL" : assetId, 
+                        question, 
+                        "Financial ranking analysis context"
+                    );
+                    
+                    Map<String, Object> response = Map.of(
+                        "status", chatResponse.getStatus(),
+                        "answer", chatResponse.getAnswer(),
+                        "citations", List.of(chatResponse.getCitations()),
+                        "confidence", chatResponse.getConfidence(),
+                        "lastUpdated", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " IST",
+                        "disclaimer", chatResponse.getDisclaimer()
+                    );
+                    
+                    return ResponseEntity.ok(response);
+                    
+                } catch (Exception e) {
+                    logger.error("OpenAI service error, falling back to mock response: ", e);
+                    // Fall through to mock response
+                }
+            }
+            
+            // Fallback response when OpenAI service is not available or fails
             Map<String, Object> response = Map.of(
-                "status", "success",
-                "answer", "This is a mock response for Railway deployment. " +
-                         "The ranking system considers multiple factors including financial performance, " +
-                         "market trends, and risk metrics to provide educational insights. " +
-                         "Always consult with financial advisors for investment decisions.",
+                "status", "fallback",
+                "answer", "This is an educational analysis based on our ranking system. " +
+                         "The ranking considers financial performance, market trends, and risk metrics. " +
+                         "This analysis is for educational purposes only and should not be considered as investment advice.",
                 "citations", List.of(
                     Map.of("source", "NSE Bhavcopy", "date", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), "title", "Market Data"),
-                    Map.of("source", "AMFI NAV", "date", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), "title", "Mutual Fund Data")
+                    Map.of("source", "AMFI NAV", "date", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), "title", "Mutual Fund Data"),
+                    Map.of("source", "RBI Database", "date", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), "title", "Economic Indicators")
                 ),
-                "confidence", 75,
+                "confidence", 70,
                 "lastUpdated", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " IST",
-                "disclaimer", "This analysis is for educational purposes only and should not be considered as investment advice."
+                "disclaimer", "Fallback response - Educational purposes only. Not investment advice."
             );
             
             return ResponseEntity.ok(response);
@@ -140,7 +170,7 @@ public class ChimeraRailwayApplication {
             return ResponseEntity.ok(Map.of(
                 "status", "error",
                 "message", "Chat service temporarily unavailable",
-                "disclaimer", "Educational purposes only."
+                "disclaimer", "Educational purposes only. Not investment advice."
             ));
         }
     }

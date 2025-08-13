@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple C logo for Chimera -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,32C28,32 24,36 24,42C24,54 24,54 24,66C24,72 28,76 34,76L50,76C56,76 60,72 60,66L60,62L52,62L52,66C52,68 50,70 48,70L36,70C34,70 32,68 32,66L32,42C32,40 34,38 36,38L48,38C50,38 52,40 52,42L52,46L60,46L60,42C60,36 56,32 50,32L34,32Z"/>
+    <!-- Add simple graph/chart element -->
+    <path
+        android:fillColor="#FFFFFF" 
+        android:pathData="M68,50L70,48L72,52L74,46L76,50L78,44L80,48L82,50L82,60L68,60Z"/>
+</vector>

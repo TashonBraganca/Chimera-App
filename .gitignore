@@ -79,4 +79,4 @@ docs/site/
 
 # Backup files
 *.bak
-*.backup
+*.backupbuild/
